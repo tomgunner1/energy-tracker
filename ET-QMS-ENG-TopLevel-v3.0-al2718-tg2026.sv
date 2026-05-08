@@ -1,4 +1,4 @@
-// ET-DES-TopLevel-v1.0-al2718-tg2026.sv
+// ET-DES-TopLevel-v0.1-al2718-tg2026.sv
 
 module energy_tracker (
     input  logic        CLOCK_50,
@@ -23,6 +23,8 @@ module energy_tracker (
     logic [31:0] new_remainder;
     logic [31:0] increments;
     logic [3:0]  digit [5:0];
+    logic [31:0] total;
+    logic [55:0] bcd_shift;
 
     assign rst_n = KEY[0];
 
@@ -42,17 +44,17 @@ module energy_tracker (
         end
     end
 
-    // Watt-seconds to 0.1Wh increment conversion
-    logic [31:0] total;
+    // Watt-seconds to 1Wh increment conversion
     assign total = remainder + {22'd0, SW};
 
     always_comb begin
         increments    = 32'd0;
         new_remainder = total;
-        if (new_remainder >= 32'd360) begin new_remainder = new_remainder - 32'd360; increments = increments + 32'd1; end
-        if (new_remainder >= 32'd360) begin new_remainder = new_remainder - 32'd360; increments = increments + 32'd1; end
-        if (new_remainder >= 32'd360) begin new_remainder = new_remainder - 32'd360; increments = increments + 32'd1; end
-        if (new_remainder >= 32'd360) begin new_remainder = new_remainder - 32'd360; increments = increments + 32'd1; end
+
+        if (new_remainder >= 32'd3600) begin
+            new_remainder = new_remainder - 32'd3600;
+            increments = increments + 32'd1;
+        end
     end
 
     // Energy accumulator: updates display value and remainder each 1Hz tick
@@ -71,24 +73,12 @@ module energy_tracker (
         end
     end
 
-    // LED bar graph: 1 LED per 1Wh (10 display units), all on at 10Wh
+    // Version 1: LED bar graph not yet implemented
     always_comb begin
-        if      (display_val >= 32'd90) LEDR = 10'b1111111111;
-        else if (display_val >= 32'd80) LEDR = 10'b0111111111;
-        else if (display_val >= 32'd70) LEDR = 10'b0011111111;
-        else if (display_val >= 32'd60) LEDR = 10'b0001111111;
-        else if (display_val >= 32'd50) LEDR = 10'b0000111111;
-        else if (display_val >= 32'd40) LEDR = 10'b0000011111;
-        else if (display_val >= 32'd30) LEDR = 10'b0000001111;
-        else if (display_val >= 32'd20) LEDR = 10'b0000000111;
-        else if (display_val >= 32'd10) LEDR = 10'b0000000011;
-        else if (display_val >= 32'd1)  LEDR = 10'b0000000001;
-        else                            LEDR = 10'b0000000000;
+        LEDR = 10'b0000000000;
     end
 
     // BCD conversion via double dabble (6 digits, 32-bit input)
-    logic [55:0] bcd_shift;
-
     always_comb begin
         bcd_shift = {24'd0, display_val};
         for (int i = 0; i < 32; i++) begin
